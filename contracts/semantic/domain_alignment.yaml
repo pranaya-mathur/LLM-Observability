@@ -1,0 +1,18 @@
+id: DOMAIN_ALIGNMENT
+type: semantic
+category: domain
+
+description: >
+  Ensures that the LLM response belongs to the expected semantic domain
+  implied by the prompt and system context.
+
+signals:
+  - domain_mismatch
+
+violation:
+  severity: high
+  confidence_threshold: 0.8
+
+action:
+  primary: block
+  fallback: static_message
