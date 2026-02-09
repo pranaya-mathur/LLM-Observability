@@ -216,20 +216,30 @@ class TestTierRouter(unittest.TestCase):
         decision = self.router.route(signal)
         self.assertEqual(decision.tier, 1)
         
-        # Just below tier1_strong threshold
+        # Just below tier1_strong threshold - falls into gray zone (Tier 2)
         signal = {"confidence": 0.79, "method": "regex_strong", "value": False}
         decision = self.router.route(signal)
-        self.assertEqual(decision.tier, 3)  # Falls through to Tier 3
+        self.assertEqual(decision.tier, 2)  # Gray zone: 0.3 < 0.79 < 0.8
         
-        # Exactly at tier1_weak threshold (0.3)
+        # Exactly at tier1_weak threshold (0.3) - boundary, goes to Tier 3
         signal = {"confidence": 0.3, "method": "regex_weak", "value": True}
         decision = self.router.route(signal)
-        self.assertEqual(decision.tier, 3)
+        self.assertEqual(decision.tier, 3)  # At boundary, not in gray zone
         
-        # Just above tier1_weak threshold
+        # Just above tier1_weak threshold - gray zone (Tier 2)
         signal = {"confidence": 0.31, "method": "regex_weak", "value": True}
         decision = self.router.route(signal)
         self.assertEqual(decision.tier, 2)
+        
+        # Below tier1_weak threshold - Tier 3
+        signal = {"confidence": 0.2, "method": "regex_weak", "value": True}
+        decision = self.router.route(signal)
+        self.assertEqual(decision.tier, 3)
+        
+        # Above tier1_strong threshold - Tier 1
+        signal = {"confidence": 0.9, "method": "regex_strong", "value": False}
+        decision = self.router.route(signal)
+        self.assertEqual(decision.tier, 1)
 
     def test_custom_thresholds(self):
         """Test router with custom thresholds."""
@@ -239,15 +249,25 @@ class TestTierRouter(unittest.TestCase):
             tier2_threshold=0.7
         )
         
-        # Should go to Tier 3 (below new strong threshold)
+        # 0.85 is in gray zone (0.2 < 0.85 < 0.9) - Should go to Tier 2
         signal = {"confidence": 0.85, "method": "regex_strong", "value": False}
         decision = custom_router.route(signal)
-        self.assertEqual(decision.tier, 3)
+        self.assertEqual(decision.tier, 2)  # In gray zone with new thresholds
         
         # Should go to Tier 1 (above new strong threshold)
         signal = {"confidence": 0.95, "method": "regex_strong", "value": False}
         decision = custom_router.route(signal)
         self.assertEqual(decision.tier, 1)
+        
+        # Below tier1_weak - Tier 3
+        signal = {"confidence": 0.15, "method": "regex_weak", "value": False}
+        decision = custom_router.route(signal)
+        self.assertEqual(decision.tier, 3)
+        
+        # In new gray zone (0.2 < 0.5 < 0.9) - Tier 2
+        signal = {"confidence": 0.5, "method": "regex_weak", "value": True}
+        decision = custom_router.route(signal)
+        self.assertEqual(decision.tier, 2)
 
 
 if __name__ == "__main__":
