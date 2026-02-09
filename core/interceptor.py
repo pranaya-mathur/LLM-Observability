@@ -56,12 +56,7 @@ class OllamaInterceptor:
         for verdict in verdicts:
             action = VerdictAdapter.resolve_action(verdict)
             if action == EnforcementAction.BLOCK:
-                 print(
-                     f"[Interceptor] BLOCKED | "
-                     f"[Interceptor] BLOCKED | "
-                     f"severity={verdict.severity}"
-                 )
-
-            return None
+                print(f"[Interceptor] BLOCKED | severity={verdict.severity}")
+                return None
 
         return text
