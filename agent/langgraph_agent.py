@@ -4,7 +4,7 @@ Implements agent-based decision making for edge cases (1% of traffic).
 Uses cached decisions for 99% of cases.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 from dataclasses import dataclass
 import json
 
@@ -67,7 +67,7 @@ class PromptInjectionAgent:
 
             workflow.add_conditional_edges(
                 "check_cache",
-                lambda state: "end" if state.cached else "analyze",
+                lambda state: "end" if self._get_cached(state) else "analyze",
                 {"end": END, "analyze": "analyze_prompt"},
             )
 
@@ -81,6 +81,12 @@ class PromptInjectionAgent:
             print(f"Warning: LangGraph workflow compilation failed: {e}")
             print("Using simple fallback workflow")
             return None
+
+    def _get_cached(self, state: Union[AgentState, Dict]) -> bool:
+        """Helper to get cached attribute from state (dict or object)."""
+        if isinstance(state, dict):
+            return state.get("cached", False)
+        return state.cached
 
     def _check_cache(self, state: AgentState) -> AgentState:
         """Check if decision is cached."""
@@ -185,6 +191,27 @@ Context:
             "tier": state.tier,
         }
 
+    def _extract_result(self, final_state: Union[AgentState, Dict]) -> Dict[str, Any]:
+        """Extract result from state (handles both dict and AgentState object)."""
+        if isinstance(final_state, dict):
+            # LangGraph returned dict
+            return {
+                "decision": final_state.get("decision", "ALLOW"),
+                "confidence": final_state.get("confidence", 0.5),
+                "reasoning": final_state.get("reasoning", "No reasoning provided"),
+                "cached": final_state.get("cached", False),
+                "tier": final_state.get("tier", 3),
+            }
+        else:
+            # LangGraph returned AgentState object
+            return {
+                "decision": final_state.decision,
+                "confidence": final_state.confidence,
+                "reasoning": final_state.reasoning,
+                "cached": final_state.cached,
+                "tier": final_state.tier,
+            }
+
     def analyze(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze prompt for injection (main entry point)."""
         initial_state = AgentState(
@@ -196,13 +223,7 @@ Context:
         if self.workflow:
             try:
                 final_state = self.workflow.invoke(initial_state)
-                return {
-                    "decision": final_state.decision,
-                    "confidence": final_state.confidence,
-                    "reasoning": final_state.reasoning,
-                    "cached": final_state.cached,
-                    "tier": final_state.tier,
-                }
+                return self._extract_result(final_state)
             except Exception as e:
                 print(f"Warning: Workflow failed, using simple analysis: {e}")
                 return self._simple_analyze(prompt, context)
