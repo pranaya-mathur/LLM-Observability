@@ -75,6 +75,19 @@ async def lifespan(app: FastAPI):
         print("⚠️ GROQ_API_KEY not set - Tier 3 detection may not work")
         print("   Get free API key from: https://console.groq.com")
     
+    # Pre-initialize Control Tower to avoid first-request timeout
+    print("🔧 Initializing Control Tower (this may take 5-10 seconds)...")
+    try:
+        from api.dependencies import get_control_tower
+        control_tower = get_control_tower()
+        print("✅ Control Tower initialized and ready")
+        print(f"   - Tier 1 (Regex): Ready")
+        print(f"   - Tier 2 (Semantic): {'Ready' if control_tower.tier2_available else 'Unavailable'}")
+        print(f"   - Tier 3 (LLM Agent): {'Ready' if control_tower.tier3_available else 'Unavailable'}")
+    except Exception as e:
+        print(f"⚠️ Control Tower initialization warning: {e}")
+        print("   Detection will initialize on first request (may cause timeout)")
+    
     print("📊 API ready at http://localhost:8000")
     print("📚 Docs at http://localhost:8000/docs")
     print("🎯 Dashboard: streamlit run dashboard/admin_dashboard.py")
