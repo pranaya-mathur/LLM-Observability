@@ -3,18 +3,9 @@
 from datetime import datetime, timedelta
 from typing import Optional
 import os
+import bcrypt
 
 from jose import JWTError, jwt
-
-try:
-    # Try passlib first (preferred)
-    from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    USE_PASSLIB = True
-except Exception:
-    # Fallback to bcrypt directly
-    import bcrypt
-    USE_PASSLIB = False
 
 
 # JWT Configuration
@@ -24,36 +15,58 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against a hash."""
-    if USE_PASSLIB:
-        return pwd_context.verify(plain_password, hashed_password)
-    else:
-        # Use bcrypt directly
+    """Verify a password against a hash.
+    
+    Args:
+        plain_password: Plain text password
+        hashed_password: Bcrypt hashed password (string)
+        
+    Returns:
+        True if password matches, False otherwise
+    """
+    try:
         return bcrypt.checkpw(
             plain_password.encode('utf-8'),
-            hashed_password.encode('utf-8')
+            hashed_password.encode('utf-8') if isinstance(hashed_password, str) else hashed_password
         )
+    except Exception:
+        return False
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a password.
+    """Hash a password using bcrypt.
     
-    Note: bcrypt has a 72-byte limit, so we truncate if needed.
+    Args:
+        password: Plain text password
+        
+    Returns:
+        Bcrypt hashed password as string
+        
+    Note: 
+        Bcrypt has a 72-byte limit. Longer passwords are automatically
+        truncated by bcrypt itself, but we do it explicitly for clarity.
     """
-    # Truncate to 72 bytes (bcrypt limit)
+    # Truncate to 72 bytes (bcrypt's limit)
     password_bytes = password.encode('utf-8')[:72]
     
-    if USE_PASSLIB:
-        return pwd_context.hash(password_bytes.decode('utf-8'))
-    else:
-        # Use bcrypt directly
-        salt = bcrypt.gensalt()
-        hashed = bcrypt.hashpw(password_bytes, salt)
-        return hashed.decode('utf-8')
+    # Generate salt and hash
+    salt = bcrypt.gensalt(rounds=12)  # 12 rounds is a good balance
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    
+    # Return as string
+    return hashed.decode('utf-8')
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """Create a JWT access token."""
+    """Create a JWT access token.
+    
+    Args:
+        data: Dictionary of data to encode in token
+        expires_delta: Optional expiration time delta
+        
+    Returns:
+        Encoded JWT token string
+    """
     to_encode = data.copy()
     
     if expires_delta:
@@ -68,7 +81,14 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 def verify_token(token: str) -> Optional[str]:
-    """Verify a JWT token and return the username."""
+    """Verify a JWT token and return the username.
+    
+    Args:
+        token: JWT token string
+        
+    Returns:
+        Username from token if valid, None otherwise
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -83,7 +103,14 @@ def verify_token(token: str) -> Optional[str]:
 
 
 def decode_token(token: str) -> Optional[dict]:
-    """Decode a JWT token and return the full payload."""
+    """Decode a JWT token and return the full payload.
+    
+    Args:
+        token: JWT token string
+        
+    Returns:
+        Dictionary of token payload if valid, None otherwise
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
