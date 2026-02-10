@@ -262,10 +262,10 @@ class PatternLibrary:
             description="Detects event handler injection"
         ),
         
-        # Path Traversal - ENHANCED
+        # Path Traversal - ENHANCED - FIXED SYNTAX ERROR
         Pattern(
             name="path_traversal_dots",
-            regex=r"(?:\.\./|\.\.\\"){2,}",
+            regex=r"(?:\.\./|\.\.\\){2,}",
             failure_class=FailureClass.PROMPT_INJECTION,
             confidence=0.95,
             description="Detects path traversal with dots"
