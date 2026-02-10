@@ -15,8 +15,39 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from functools import lru_cache
 import logging
+import signal
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
+
+
+class TimeoutException(Exception):
+    """Exception raised when embedding computation times out."""
+    pass
+
+
+@contextmanager
+def timeout_context(seconds):
+    """Context manager for timing out operations.
+    
+    Args:
+        seconds: Maximum time allowed
+    """
+    def timeout_handler(signum, frame):
+        raise TimeoutException("Operation timed out")
+    
+    # Set up timeout (Unix only - Windows will skip this)
+    if hasattr(signal, 'SIGALRM'):
+        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(seconds)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+    else:
+        # Windows - no timeout protection, just yield
+        yield
 
 
 class SemanticDetector:
@@ -157,12 +188,17 @@ class SemanticDetector:
         if failure_class not in self.pattern_embeddings:
             return 0.0, f"Unknown failure class: {failure_class}"
         
-        # Encode the input text
-        text_embedding = self.model.encode(
-            [text], 
-            normalize_embeddings=True,
-            show_progress_bar=False
-        )[0]
+        try:
+            # Encode with timeout protection (2 seconds max)
+            with timeout_context(2):
+                text_embedding = self.model.encode(
+                    [text], 
+                    normalize_embeddings=True,
+                    show_progress_bar=False
+                )[0]
+        except (TimeoutException, Exception) as e:
+            logger.warning(f"Embedding computation timed out or failed: {e}")
+            return 0.0, "Embedding computation timeout - text may be pathological"
         
         # Calculate cosine similarity with all pattern embeddings
         pattern_embs = self.pattern_embeddings[failure_class]
