@@ -20,9 +20,10 @@ DATABASE_URL = os.getenv(
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
-    pool_pre_ping=True,  # Verify connections before using
-    pool_size=20,  # Connection pool size
-    max_overflow=10,  # Max connections beyond pool_size
+    # CRITICAL FIX: Disable pool_pre_ping for SQLite (causes 2s delays on Windows)
+    # pool_pre_ping=True,  # Only needed for PostgreSQL in production
+    pool_size=5,  # Reduced for SQLite (was 20)
+    max_overflow=5,  # Reduced for SQLite (was 10)
 )
 
 # Create session factory
