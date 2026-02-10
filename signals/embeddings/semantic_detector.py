@@ -16,6 +16,7 @@ from sentence_transformers import SentenceTransformer
 from functools import lru_cache
 import logging
 import threading
+from collections import Counter
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,34 @@ logger = logging.getLogger(__name__)
 class TimeoutException(Exception):
     """Exception raised when embedding computation times out."""
     pass
+
+
+def is_pathological_text(text: str) -> bool:
+    """Check if text is pathological (repetitive, might hang embeddings).
+    
+    Args:
+        text: Text to check
+        
+    Returns:
+        True if text is pathological and should be skipped
+    """
+    if not text or len(text) < 10:
+        return False
+    
+    # Check for high repetition (>80% same character)
+    char_counts = Counter(text)
+    most_common_char, most_common_count = char_counts.most_common(1)[0]
+    
+    if most_common_count / len(text) > 0.8:
+        logger.warning(f"Pathological text detected: {most_common_count/len(text)*100:.1f}% repetition")
+        return True
+    
+    # Check for very low diversity (< 5 unique characters in 100+ char text)
+    if len(text) > 100 and len(set(text)) < 5:
+        logger.warning(f"Pathological text detected: only {len(set(text))} unique characters")
+        return True
+    
+    return False
 
 
 def run_with_timeout(func, args=(), kwargs=None, timeout=2.0):
@@ -269,6 +298,14 @@ class SemanticDetector:
                 "detected": False,
                 "confidence": 0.0,
                 "explanation": "Response too short for semantic analysis"
+            }
+        
+        # CRITICAL: Skip pathological text that might hang embeddings
+        if is_pathological_text(response):
+            return {
+                "detected": False,
+                "confidence": 0.0,
+                "explanation": "Pathological text skipped (highly repetitive)"
             }
         
         # Compute semantic similarity
