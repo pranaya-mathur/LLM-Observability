@@ -1,5 +1,6 @@
-"""FastAPI application for LLM Observability."""
+"""FastAPI application for LLM Observability - Phase 5."""
 
-from .app import app
+# Import from the Phase 5 complete app
+from .app_complete import app
 
 __all__ = ["app"]
