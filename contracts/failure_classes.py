@@ -14,10 +14,13 @@ class FailureClass(str, Enum):
     FABRICATED_CONCEPT = "fabricated_concept"
     FABRICATED_FACT = "fabricated_fact"
     DANGEROUS_CONTENT = "dangerous_content"
+    PROMPT_INJECTION = "prompt_injection"
+    TOXICITY = "toxicity"
     
     # High severity - strong warnings required
     MISSING_GROUNDING = "missing_grounding"
     DOMAIN_MISMATCH = "domain_mismatch"
+    BIAS = "bias"
     
     # Medium severity - user awareness needed
     OVERCONFIDENCE = "overconfidence"
@@ -41,11 +44,20 @@ class FailureMetadata:
         FailureClass.DANGEROUS_CONTENT: (
             "Response contains harmful, unsafe, or prohibited content"
         ),
+        FailureClass.PROMPT_INJECTION: (
+            "Attempt to manipulate system behavior through prompt injection or jailbreak"
+        ),
+        FailureClass.TOXICITY: (
+            "Response contains hate speech, slurs, or offensive language"
+        ),
         FailureClass.MISSING_GROUNDING: (
             "Response lacks citations, sources, or grounding in evidence"
         ),
         FailureClass.DOMAIN_MISMATCH: (
             "Response discusses wrong domain or misunderstands context"
+        ),
+        FailureClass.BIAS: (
+            "Response contains stereotyping, prejudice, or discriminatory language"
         ),
         FailureClass.OVERCONFIDENCE: (
             "Response shows excessive certainty without justification"
