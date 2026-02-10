@@ -6,6 +6,10 @@ Provides unified interface for LLM calls with fallback support.
 import os
 from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class LLMProvider(ABC):
@@ -34,7 +38,7 @@ class GroqProvider(LLMProvider):
 
         if self.api_key:
             try:
-                from langchain.chat_models import ChatGroq
+                from langchain_groq import ChatGroq
 
                 self.client = ChatGroq(
                     groq_api_key=self.api_key,
@@ -43,8 +47,10 @@ class GroqProvider(LLMProvider):
                 )
             except ImportError:
                 raise ImportError(
-                    "langchain not installed. Run: pip install langchain langchain-groq"
+                    "langchain-groq not installed. Run: pip install langchain-groq"
                 )
+            except Exception as e:
+                print(f"Warning: Groq initialization failed: {e}")
 
     def generate(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """Generate response using Groq API."""
@@ -52,9 +58,9 @@ class GroqProvider(LLMProvider):
             raise ValueError("Groq API key not configured")
 
         try:
-            from langchain.schema import HumanMessage
+            from langchain_core.messages import HumanMessage
 
-            response = self.client([HumanMessage(content=prompt)])
+            response = self.client.invoke([HumanMessage(content=prompt)])
             return {
                 "content": response.content,
                 "model": self.model,
@@ -95,17 +101,19 @@ class OllamaProvider(LLMProvider):
         self.client = None
 
         try:
-            from langchain_community.llms import Ollama
+            from langchain_ollama import OllamaLLM
 
-            self.client = Ollama(
+            self.client = OllamaLLM(
                 model=self.model,
                 base_url=self.base_url,
                 temperature=0.0,
             )
         except ImportError:
             raise ImportError(
-                "langchain-community not installed. Run: pip install langchain-community"
+                "langchain-ollama not installed. Run: pip install langchain-ollama"
             )
+        except Exception as e:
+            print(f"Warning: Ollama initialization failed: {e}")
 
     def generate(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """Generate response using Ollama."""
@@ -152,16 +160,21 @@ class LLMProviderManager:
             groq = GroqProvider()
             if groq.is_available():
                 self.providers.append(groq)
-        except:
-            pass
+                print("✅ Groq provider initialized")
+        except Exception as e:
+            print(f"⚠️ Groq provider not available: {e}")
 
         # Fallback to Ollama (local, always available if running)
         try:
             ollama = OllamaProvider()
             if ollama.is_available():
                 self.providers.append(ollama)
-        except:
-            pass
+                print("✅ Ollama provider initialized")
+        except Exception as e:
+            print(f"⚠️ Ollama provider not available: {e}")
+
+        if not self.providers:
+            print("⚠️ No LLM providers available. Tier 3 detection will not work.")
 
     def generate(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """Generate response with automatic fallback."""
