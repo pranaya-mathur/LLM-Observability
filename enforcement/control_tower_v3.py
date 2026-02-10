@@ -70,11 +70,11 @@ class ControlTowerV3:
                 print("✅ Tier 3 LLM agent initialized")
             except Exception as e:
                 print(f"⚠️ Warning: LLM agent initialization failed: {e}")
-                print("   Make sure Ollama is running: ollama run llama3.2")
+                print("   Make sure Groq API key is set in .env or Ollama is running")
                 self.tier3_available = False
         else:
             self.tier3_available = False
-            print("⚠️ Tier 3 LLM agent disabled (set enable_tier3=True to enable)")
+            print("ℹ️ Tier 3 LLM agent disabled (set enable_tier3=True in dependencies.py to enable)")
     
     def _tier1_detect(self, text: str) -> Dict[str, Any]:
         """
@@ -178,32 +178,79 @@ class ControlTowerV3:
             }
         
         try:
-            # For now, check against common failure classes
-            # In a real system, you'd determine which class to check based on context
+            # Check against ALL failure classes for comprehensive detection
             max_similarity = 0.0
             detected_class = None
+            detection_details = []
             
-            # Check against each failure class
-            for failure_class in ["fabricated_concept", "missing_grounding", "overconfidence"]:
+            # Security patterns get lower threshold (more sensitive)
+            security_classes = ["prompt_injection", "bias", "toxicity"]
+            general_classes = ["fabricated_concept", "missing_grounding", "overconfidence", 
+                             "domain_mismatch", "fabricated_fact"]
+            
+            # Check security patterns first (higher priority)
+            for failure_class in security_classes:
+                try:
+                    result = self.semantic_detector.detect(
+                        response=text,
+                        failure_class=failure_class,
+                        threshold=0.65  # Lower threshold for security = more sensitive
+                    )
+                    confidence = result["confidence"]
+                    detection_details.append(f"{failure_class}:{confidence:.2f}")
+                    
+                    if confidence > max_similarity:
+                        max_similarity = confidence
+                        if result["detected"]:
+                            detected_class = failure_class
+                except Exception as e:
+                    continue
+            
+            # Then check general failure patterns
+            for failure_class in general_classes:
                 try:
                     result = self.semantic_detector.detect(
                         response=text,
                         failure_class=failure_class,
                         threshold=0.70
                     )
-                    if result["confidence"] > max_similarity:
-                        max_similarity = result["confidence"]
+                    confidence = result["confidence"]
+                    detection_details.append(f"{failure_class}:{confidence:.2f}")
+                    
+                    if confidence > max_similarity:
+                        max_similarity = confidence
                         if result["detected"]:
                             detected_class = failure_class
                 except Exception as e:
                     continue
             
+            # Convert string to FailureClass enum
+            failure_class_enum = None
+            if detected_class:
+                try:
+                    # Map semantic class names to FailureClass enum
+                    class_mapping = {
+                        "prompt_injection": FailureClass.PROMPT_INJECTION,
+                        "bias": FailureClass.BIAS,
+                        "toxicity": FailureClass.TOXICITY,
+                        "fabricated_concept": FailureClass.FABRICATED_CONCEPT,
+                        "missing_grounding": FailureClass.MISSING_GROUNDING,
+                        "overconfidence": FailureClass.OVERCONFIDENCE,
+                        "domain_mismatch": FailureClass.DOMAIN_MISMATCH,
+                        "fabricated_fact": FailureClass.FABRICATED_FACT,
+                    }
+                    failure_class_enum = class_mapping.get(detected_class)
+                except Exception as e:
+                    print(f"Warning: Could not map failure class: {e}")
+            
+            explanation = f"Semantic analysis: {', '.join(detection_details[:3])}" if detection_details else "Semantic analysis completed"
+            
             return {
                 "confidence": max_similarity,
-                "failure_class": detected_class,
+                "failure_class": failure_class_enum,
                 "method": "semantic",
-                "should_allow": max_similarity < 0.70,
-                "explanation": f"Semantic similarity: {max_similarity:.2f}"
+                "should_allow": detected_class is None,
+                "explanation": explanation
             }
         except Exception as e:
             print(f"Warning: Semantic detection error: {e}")
@@ -240,11 +287,14 @@ class ControlTowerV3:
             # Use LLM agent for deep analysis
             agent_result = self.llm_agent.analyze(text, context)
             
+            # Convert decision to boolean
+            should_block = agent_result.get("decision") == "BLOCK"
+            
             return {
                 "confidence": agent_result.get("confidence", 0.7),
-                "failure_class": agent_result.get("failure_class"),
+                "failure_class": FailureClass.PROMPT_INJECTION if should_block else None,
                 "method": "llm_agent",
-                "should_allow": not agent_result.get("is_malicious", False),
+                "should_allow": not should_block,
                 "explanation": agent_result.get("reasoning", "LLM agent analysis completed")
             }
         except Exception as e:
@@ -294,13 +344,6 @@ class ControlTowerV3:
             failure_class = final_result.get("failure_class")
             confidence = final_result.get("confidence", 0.5)
             should_allow = final_result.get("should_allow")
-            
-            # Convert string failure_class to enum if needed
-            if isinstance(failure_class, str):
-                try:
-                    failure_class = FailureClass(failure_class)
-                except ValueError:
-                    failure_class = None
             
             # Get policy for failure class
             if failure_class:
