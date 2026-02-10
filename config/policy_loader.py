@@ -7,9 +7,18 @@ Provides type-safe access to policy rules.
 import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional
+from dataclasses import dataclass
 
 from contracts.failure_classes import FailureClass
 from contracts.severity_levels import SeverityLevel, EnforcementAction
+
+
+@dataclass
+class Policy:
+    """Policy for a failure class."""
+    action: EnforcementAction
+    severity: SeverityLevel
+    reason: str
 
 
 class PolicyLoader:
@@ -43,6 +52,24 @@ class PolicyLoader:
             )
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML in policy file: {e}")
+    
+    def get_policy(self, failure_class: FailureClass) -> Policy:
+        """Get complete policy for a failure class.
+        
+        Args:
+            failure_class: FailureClass enum value
+            
+        Returns:
+            Policy object with action, severity, and reason
+        """
+        # Convert enum to string for lookup
+        failure_class_str = failure_class.value if isinstance(failure_class, FailureClass) else str(failure_class)
+        
+        return Policy(
+            action=self.get_action(failure_class_str),
+            severity=self.get_severity(failure_class_str),
+            reason=self.get_reason(failure_class_str)
+        )
     
     def get_severity(self, failure_class: str) -> SeverityLevel:
         """Get severity level for a failure class.
