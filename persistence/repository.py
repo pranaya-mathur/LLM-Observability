@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 
-from persistence.models import DetectionLog, SystemMetrics
+from persistence.models import Detection, MetricsSnapshot
 
 
 class DetectionRepository:
@@ -15,40 +15,40 @@ class DetectionRepository:
     def __init__(self, db: Session):
         self.db = db
     
-    def create(self, detection_data: dict) -> DetectionLog:
+    def create(self, detection_data: dict) -> Detection:
         """Create a new detection log entry.
         
         Args:
             detection_data: Dictionary with detection information
             
         Returns:
-            Created DetectionLog instance
+            Created Detection instance
         """
-        log = DetectionLog(**detection_data)
+        log = Detection(**detection_data)
         self.db.add(log)
         self.db.commit()
         self.db.refresh(log)
         return log
     
-    def get_by_id(self, log_id: int) -> Optional[DetectionLog]:
+    def get_by_id(self, log_id: int) -> Optional[Detection]:
         """Get detection log by ID."""
-        return self.db.query(DetectionLog).filter(DetectionLog.id == log_id).first()
+        return self.db.query(Detection).filter(Detection.id == log_id).first()
     
-    def get_recent(self, limit: int = 100) -> List[DetectionLog]:
+    def get_recent(self, limit: int = 100) -> List[Detection]:
         """Get recent detection logs."""
         return (
-            self.db.query(DetectionLog)
-            .order_by(desc(DetectionLog.created_at))
+            self.db.query(Detection)
+            .order_by(desc(Detection.created_at))
             .limit(limit)
             .all()
         )
     
-    def get_by_tier(self, tier: int, limit: int = 100) -> List[DetectionLog]:
+    def get_by_tier(self, tier: int, limit: int = 100) -> List[Detection]:
         """Get detection logs filtered by tier."""
         return (
-            self.db.query(DetectionLog)
-            .filter(DetectionLog.tier_used == tier)
-            .order_by(desc(DetectionLog.created_at))
+            self.db.query(Detection)
+            .filter(Detection.tier_used == tier)
+            .order_by(desc(Detection.created_at))
             .limit(limit)
             .all()
         )
@@ -57,9 +57,9 @@ class DetectionRepository:
         """Get count of blocked detections in the last N hours."""
         since = datetime.utcnow() - timedelta(hours=hours)
         return (
-            self.db.query(func.count(DetectionLog.id))
-            .filter(DetectionLog.blocked == True)
-            .filter(DetectionLog.created_at >= since)
+            self.db.query(func.count(Detection.id))
+            .filter(Detection.blocked == True)
+            .filter(Detection.created_at >= since)
             .scalar()
         )
     
@@ -68,8 +68,8 @@ class DetectionRepository:
         since = datetime.utcnow() - timedelta(hours=hours)
         
         total = (
-            self.db.query(func.count(DetectionLog.id))
-            .filter(DetectionLog.created_at >= since)
+            self.db.query(func.count(Detection.id))
+            .filter(Detection.created_at >= since)
             .scalar()
         )
         
@@ -78,11 +78,11 @@ class DetectionRepository:
         
         tier_counts = (
             self.db.query(
-                DetectionLog.tier_used,
-                func.count(DetectionLog.id).label("count")
+                Detection.tier_used,
+                func.count(Detection.id).label("count")
             )
-            .filter(DetectionLog.created_at >= since)
-            .group_by(DetectionLog.tier_used)
+            .filter(Detection.created_at >= since)
+            .group_by(Detection.tier_used)
             .all()
         )
         
@@ -98,35 +98,35 @@ class MetricsRepository:
     def __init__(self, db: Session):
         self.db = db
     
-    def create_snapshot(self, metrics_data: dict) -> SystemMetrics:
+    def create_snapshot(self, metrics_data: dict) -> MetricsSnapshot:
         """Create a new metrics snapshot.
         
         Args:
             metrics_data: Dictionary with metrics information
             
         Returns:
-            Created SystemMetrics instance
+            Created MetricsSnapshot instance
         """
-        metrics = SystemMetrics(**metrics_data)
+        metrics = MetricsSnapshot(**metrics_data)
         self.db.add(metrics)
         self.db.commit()
         self.db.refresh(metrics)
         return metrics
     
-    def get_latest(self) -> Optional[SystemMetrics]:
+    def get_latest(self) -> Optional[MetricsSnapshot]:
         """Get the most recent metrics snapshot."""
         return (
-            self.db.query(SystemMetrics)
-            .order_by(desc(SystemMetrics.recorded_at))
+            self.db.query(MetricsSnapshot)
+            .order_by(desc(MetricsSnapshot.created_at))
             .first()
         )
     
-    def get_time_series(self, hours: int = 24) -> List[SystemMetrics]:
+    def get_time_series(self, hours: int = 24) -> List[MetricsSnapshot]:
         """Get metrics time series for the last N hours."""
         since = datetime.utcnow() - timedelta(hours=hours)
         return (
-            self.db.query(SystemMetrics)
-            .filter(SystemMetrics.recorded_at >= since)
-            .order_by(SystemMetrics.recorded_at)
+            self.db.query(MetricsSnapshot)
+            .filter(MetricsSnapshot.created_at >= since)
+            .order_by(MetricsSnapshot.created_at)
             .all()
         )
