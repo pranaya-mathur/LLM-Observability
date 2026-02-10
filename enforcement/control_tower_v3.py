@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import time
 import re
 import signal
+from collections import Counter
 
 from config.policy_loader import PolicyLoader
 from contracts.severity_levels import SeverityLevel, EnforcementAction
@@ -41,6 +42,59 @@ class TimeoutException(Exception):
 def timeout_handler(signum, frame):
     """Signal handler for regex timeout."""
     raise TimeoutException("Regex timeout")
+
+
+def is_pathological_input_early(text: str) -> tuple[bool, str, float]:
+    """Early detection of pathological patterns before expensive processing.
+    
+    This catches patterns that would timeout or waste CPU in Tier 2.
+    
+    Args:
+        text: Input text to check
+        
+    Returns:
+        Tuple of (is_pathological, explanation, confidence)
+    """
+    if not text or len(text) < 10:
+        return False, "", 0.0
+    
+    # Check 1: Excessive repetition (>80% same character)
+    if len(text) > 50:
+        char_counts = Counter(text)
+        if char_counts:
+            most_common_char, most_common_count = char_counts.most_common(1)[0]
+            repetition_ratio = most_common_count / len(text)
+            
+            if repetition_ratio > 0.8:
+                return True, f"Excessive repetition detected ({repetition_ratio*100:.1f}%)", 0.95
+    
+    # Check 2: Very low character diversity
+    if len(text) > 100:
+        unique_chars = len(set(text))
+        if unique_chars < 5:
+            return True, f"Low character diversity ({unique_chars} unique chars)", 0.95
+    
+    # Check 3: Repeated character patterns (aaaa, bbbb)
+    if re.search(r'(.)\1{20,}', text):
+        return True, "Character repetition pattern detected", 0.95
+    
+    # Check 4: Known attack patterns (SQL, XSS, path traversal)
+    attack_patterns = [
+        (r'SELECT .* FROM', "SQL injection pattern"),
+        (r'UNION SELECT', "SQL union attack"),
+        (r'DROP TABLE', "SQL drop table"),
+        (r'<script[^>]*>', "XSS script tag"),
+        (r'javascript:', "JavaScript protocol"),
+        (r'\.\.[\\/]\.\.[\\/]', "Path traversal"),
+        (r'etc[\\/]passwd', "Unix password file access"),
+        (r'cmd\.exe', "Windows command execution"),
+    ]
+    
+    for pattern, description in attack_patterns:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True, f"Attack pattern detected: {description}", 0.90
+    
+    return False, "", 0.0
 
 
 class ControlTowerV3:
@@ -138,14 +192,26 @@ class ControlTowerV3:
                 "explanation": "Text too short for analysis"
             }
         
+        # CRITICAL OPTIMIZATION: Check for pathological inputs FIRST
+        # This saves 2+ seconds by avoiding Tier 2 semantic processing
+        is_pathological, path_reason, path_confidence = is_pathological_input_early(text)
+        if is_pathological:
+            # Immediately return as blocked - don't waste CPU on semantic analysis
+            return {
+                "confidence": path_confidence,
+                "failure_class": FailureClass.PROMPT_INJECTION,
+                "method": "regex_pathological",
+                "should_allow": False,
+                "explanation": f"Pathological input detected (early): {path_reason}"
+            }
+        
         # CRITICAL FIX: Truncate long text to prevent catastrophic backtracking
         # Regex on 500+ chars with .* can cause exponential time
         original_length = len(text)
         if original_length > 500:
             text = text[:500]
-            print(f"⚠️ Warning: Truncated text from {original_length} to 500 chars for regex safety")
         
-        # Handle very long text (potential DOS) - now 1000 char limit
+        # Handle very long text (potential DOS) - now 10000 char limit
         if original_length > 10000:
             return {
                 "confidence": 0.7,
@@ -384,8 +450,24 @@ class ControlTowerV3:
         context = context or {}
         
         try:
-            # Tier 1: Fast regex detection
+            # Tier 1: Fast regex detection (includes early pathological check)
             tier1_result = self._tier1_detect(llm_response)
+            
+            # CRITICAL: If pathological input detected, return immediately
+            # Don't waste 2+ seconds on Tier 2 semantic analysis
+            if tier1_result.get("method") == "regex_pathological":
+                processing_time = (time.time() - start_time) * 1000
+                
+                return DetectionResult(
+                    action=EnforcementAction.BLOCK,
+                    tier_used=1,
+                    method="regex_pathological",
+                    confidence=tier1_result.get("confidence", 0.95),
+                    processing_time_ms=processing_time,
+                    failure_class=FailureClass.PROMPT_INJECTION,
+                    severity=SeverityLevel.CRITICAL,
+                    explanation=tier1_result.get("explanation", "Pathological input blocked")
+                )
             
             # Route to appropriate tier based on confidence
             tier_decision = self.tier_router.route(tier1_result)
