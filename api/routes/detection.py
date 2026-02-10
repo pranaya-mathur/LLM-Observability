@@ -28,6 +28,8 @@ def is_pathological_input(text: str) -> tuple[bool, str]:
     
     Industry standard: Detect malicious patterns early (OWASP Input Validation).
     
+    This matches the early detection in Control Tower for consistency.
+    
     Args:
         text: Input text to validate
         
@@ -53,14 +55,55 @@ def is_pathological_input(text: str) -> tuple[bool, str]:
         if unique_chars < 5:
             return True, f"Low character diversity ({unique_chars} unique chars in {len(text)} chars)"
     
-    # Check 3: Known attack patterns that might cause issues
-    attack_patterns = [
-        (r'(.)\1{50,}', "Character repetition attack"),  # aaaa...aaa
-        (r'<.*?>{50,}', "HTML tag flooding"),  # <tag><tag><tag>...
+    # Check 3: Repeated character patterns (aaaa, bbbb)
+    if re.search(r'(.)\1{20,}', text):
+        return True, "Character repetition pattern detected"
+    
+    # Check 4: SQL injection patterns (CRITICAL FIX!)
+    sql_patterns = [
+        (r'SELECT .* FROM', "SQL injection pattern"),
+        (r'UNION SELECT', "SQL union attack"),
+        (r'DROP TABLE', "SQL drop table"),
+        (r'INSERT INTO', "SQL injection"),
+        (r'DELETE FROM', "SQL deletion"),
+        (r"'\s*OR\s*'1'\s*=\s*'1", "SQL OR injection"),
+    ]
+    
+    for pattern, description in sql_patterns:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True, f"Attack pattern detected: {description}"
+    
+    # Check 5: XSS patterns (CRITICAL FIX!)
+    xss_patterns = [
+        (r'<script[^>]*>', "XSS script tag"),
+        (r'javascript:', "JavaScript protocol"),
+        (r'onerror\s*=', "XSS onerror handler"),
+        (r'onload\s*=', "XSS onload handler"),
+    ]
+    
+    for pattern, description in xss_patterns:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True, f"Attack pattern detected: {description}"
+    
+    # Check 6: Path traversal patterns (CRITICAL FIX!)
+    path_patterns = [
+        (r'\.\.[\\/]\.\.[\\/]', "Path traversal"),
+        (r'etc[\\/]passwd', "Unix password file access"),
+        (r'cmd\.exe', "Windows command execution"),
+        (r'\\\\windows\\\\system32', "Windows system access"),
+    ]
+    
+    for pattern, description in path_patterns:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True, f"Attack pattern detected: {description}"
+    
+    # Check 7: Other dangerous patterns
+    other_patterns = [
+        (r'<.*?>{50,}', "HTML tag flooding"),
         (r'[\x00-\x08\x0B\x0C\x0E-\x1F]{10,}', "Control character flooding"),
     ]
     
-    for pattern, description in attack_patterns:
+    for pattern, description in other_patterns:
         if re.search(pattern, text):
             return True, description
     
@@ -163,12 +206,14 @@ async def detect(
     preprocessed_text = preprocess_input(request.text, max_length=10000)
     
     # CRITICAL FIX 2: Early detection of pathological inputs
+    # This now includes SQL, XSS, and path traversal patterns!
     is_pathological, pathological_reason = is_pathological_input(preprocessed_text)
     
     if is_pathological:
         logger.warning(f"Pathological input detected: {pathological_reason} (request_id={request_id})")
         
         # Return early with block action (don't waste resources on malicious input)
+        # This bypasses Control Tower entirely - saves 2+ seconds!
         return DetectionResponse(
             action="block",
             tier_used=1,
