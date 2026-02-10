@@ -5,6 +5,10 @@ Run with:
 """
 
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# Load environment variables FIRST before any other imports
+load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,6 +66,14 @@ async def lifespan(app: FastAPI):
         create_default_admin()
     except Exception as e:
         print(f"⚠️ Startup warning: {e}")
+    
+    # Check LLM providers
+    import os
+    if os.getenv("GROQ_API_KEY"):
+        print("✅ GROQ_API_KEY loaded from environment")
+    else:
+        print("⚠️ GROQ_API_KEY not set - Tier 3 detection may not work")
+        print("   Get free API key from: https://console.groq.com")
     
     print("📊 API ready at http://localhost:8000")
     print("📚 Docs at http://localhost:8000/docs")
