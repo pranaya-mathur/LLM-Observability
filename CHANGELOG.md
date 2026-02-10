@@ -1,106 +1,60 @@
 # Changelog
 
-All notable changes to this project are documented here.
+All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### In Progress
-- FastAPI production wrapper
-- Structured JSON logging
-- Metrics dashboard
-- Database persistence layer
-
-## [0.3.0] - 2026-02-10
-
 ### Added
-- Multi-tier detection system with cascading logic
-- Semantic embedding detection (Tier 2)
-- LLM agent for complex cases (Tier 3)
+- Multi-tier detection architecture with cascading fallback
+- Semantic embedding-based detection for ambiguous cases
+- LLM agent integration for complex reasoning
 - Policy-driven enforcement via YAML configuration
-- Decision caching for deterministic behavior
-- Basic API endpoints for detection
-
-### Fixed
-- Timeout issues on pathological inputs
-- Regex catastrophic backtracking problems
-- Windows compatibility issues with timeouts
-- False positives in acronym detection
-- Database connection pooling delays
+- FastAPI endpoints for detection
+- Caching system for deterministic responses
+- Health monitoring and statistics tracking
 
 ### Changed
-- Simplified README and removed excessive formatting
-- Improved error handling across all tiers
-- Optimized semantic detector with input truncation
-- Updated regex patterns for better security detection
-
-## [0.2.0] - 2026-02-09
-
-### Added
-- LangGraph-based LLM agent
-- Groq and Ollama provider support
-- Decision caching system
-- Prompt injection detection patterns
-- Bias and toxicity detection
+- Improved regex patterns to handle edge cases
+- Optimized embedding initialization to reduce latency
+- Enhanced timeout handling for long-running detections
+- Refactored API structure for better maintainability
 
 ### Fixed
-- Semantic detector initialization delays
-- Memory leaks in embedding cache
+- Regex catastrophic backtracking on pathological inputs
+- Windows compatibility issues with signal handling
+- Database connection pooling delays
+- HuggingFace model loading network calls
+- False positives in acronym detection patterns
+- Thread cleanup in timeout handlers
+
+## [0.2.0] - 2026-02-10
+
+### Added
+- Tier 2 semantic detection with sentence transformers
+- Tier 3 LLM agent with decision caching
+- Prompt injection detection
+- Bias and toxicity detection modules
+- Comprehensive test suite
+- API authentication and authorization
+
+### Fixed
+- Input validation and sanitization
+- SQL injection and XSS pattern detection
+- Path traversal detection
+- Email validation for development domains
 
 ## [0.1.0] - 2026-02-08
 
 ### Added
 - Initial project structure
-- Basic regex pattern detection
-- Failure class taxonomy
+- Basic regex-based detection (Tier 1)
 - Policy configuration system
-- Simple test suite
+- Core failure class definitions
+- Basic API server with FastAPI
+- Docker support
+- Initial documentation
 
-### Known Issues
-- Performance degrades with very long inputs
-- First request after startup is slow
-- Limited test coverage
-- No authentication on API endpoints
-
-## Development Notes
-
-### Architecture Evolution
-
-The project started with simple regex patterns and evolved into a multi-tier system:
-
-1. **Initial approach**: Pure regex matching
-   - Fast but high false positive rate
-   - Limited to known patterns
-
-2. **Added semantic layer**: Embedding-based detection
-   - Better handling of paraphrased content
-   - Reduced false positives by ~30%
-   - Added ~5-10ms latency
-
-3. **Integrated LLM reasoning**: Agent for edge cases
-   - Handles complex contextual cases
-   - Fallback for ambiguous content
-   - Expensive, used sparingly
-
-### Performance Lessons
-
-- Caching is critical for production use
-- Regex patterns need careful testing for backtracking
-- Embedding models are CPU-intensive on Windows
-- Thread-based timeouts work better than signal-based
-- Input preprocessing can prevent most timeout issues
-
-### Design Decisions
-
-- YAML for policies: Easy to modify without code changes
-- Three tiers: Balance between speed and accuracy
-- Fail-safe defaults: Allow on errors to avoid blocking valid content
-- Stateless design: Easier to scale horizontally
-
-## Future Direction
-
-See TODO.md for detailed roadmap. Key focus areas:
-
-- Improving test coverage
-- Production hardening
-- Performance optimization
-- Better documentation
+### Security
+- Added input length limits
+- Implemented timeout protection
+- Added rate limiting middleware
