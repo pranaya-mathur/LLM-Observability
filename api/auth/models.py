@@ -1,66 +1,44 @@
-"""Authentication data models."""
+"""Pydantic models for authentication."""
 
-from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
-from enum import Enum
-
-
-class UserRole(str, Enum):
-    """User role enumeration."""
-    ADMIN = "admin"
-    USER = "user"
-    VIEWER = "viewer"
-
-
-class RateLimitTier(str, Enum):
-    """Rate limit tier enumeration."""
-    FREE = "free"          # 100 req/hour
-    PRO = "pro"            # 1000 req/hour
-    ENTERPRISE = "enterprise"  # Custom limits
-
-
-class User(BaseModel):
-    """User base model."""
-    username: str
-    email: EmailStr
-    full_name: Optional[str] = None
-    role: UserRole = UserRole.USER
-    rate_limit_tier: RateLimitTier = RateLimitTier.FREE
-    disabled: bool = False
-
-
-class UserCreate(BaseModel):
-    """User creation model."""
-    username: str = Field(..., min_length=3, max_length=50)
-    email: EmailStr
-    password: str = Field(..., min_length=8)
-    full_name: Optional[str] = None
-
-
-class UserInDB(User):
-    """User model with hashed password for database storage."""
-    hashed_password: str
-    created_at: Optional[str] = None
-    last_login: Optional[str] = None
+from pydantic import BaseModel, EmailStr
 
 
 class Token(BaseModel):
-    """JWT token response model."""
+    """JWT token response."""
     access_token: str
     token_type: str = "bearer"
 
 
 class TokenData(BaseModel):
     """Token payload data."""
-    username: Optional[str] = None
-    role: Optional[UserRole] = None
+    username: str | None = None
+    role: str | None = None
 
 
-class APIKey(BaseModel):
-    """API key model."""
-    key_id: str
-    name: str
-    key: str
-    user_id: str
-    created_at: str
-    last_used: Optional[str] = None
+class UserBase(BaseModel):
+    """Base user model."""
+    username: str
+    email: EmailStr
+
+
+class UserCreate(UserBase):
+    """User creation model."""
+    password: str
+
+
+class UserResponse(UserBase):
+    """User response model."""
+    role: str
+    rate_limit_tier: str
+    disabled: bool = False
+    
+    class Config:
+        from_attributes = True
+
+
+class UserUpdate(BaseModel):
+    """User update model."""
+    email: EmailStr | None = None
+    role: str | None = None
+    rate_limit_tier: str | None = None
+    disabled: bool | None = None
