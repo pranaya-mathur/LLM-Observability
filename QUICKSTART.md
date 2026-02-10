@@ -2,7 +2,14 @@
 
 **Get Phase 5 running in 3 commands!**
 
-## Option 1: Automated Startup (Recommended)
+## ⚠️ IMPORTANT: Use the Correct Startup Command
+
+**DO NOT USE:** `uvicorn api.app:app`  
+**USE THIS:** `python run_phase5.py` or `uvicorn api.app_complete:app`
+
+---
+
+## Option 1: Easiest Method (Recommended)
 
 ```bash
 # 1. Clone and setup
@@ -13,44 +20,92 @@ git checkout phase5-security-dashboard
 # 2. Install dependencies
 pip install -r requirements_phase5.txt
 
-# 3. Start everything!
-chmod +x start_phase5.sh
-./start_phase5.sh
+# 3. Start API
+python run_phase5.py
 ```
 
 That's it! 🎉
 
 **What you get:**
 - 📊 API running on http://localhost:8000
-- 🎨 Dashboard on http://localhost:8501
 - 📚 Docs at http://localhost:8000/docs
+- 🔑 Auto-created admin user
+
+**In another terminal, start dashboard:**
+```bash
+streamlit run dashboard/admin_dashboard.py
+```
 
 **Default Login:**
 - Username: `admin`
 - Password: `admin123`
 
-**To stop:**
+---
+
+## Option 2: Using uvicorn directly
+
 ```bash
+# Terminal 1: Start API (use app_complete, NOT app)
+python -m uvicorn api.app_complete:app --reload --port 8000
+
+# Terminal 2: Start Dashboard
+streamlit run dashboard/admin_dashboard.py
+```
+
+---
+
+## Option 3: Automated Script (Linux/Mac)
+
+```bash
+# Makes everything easy
+chmod +x start_phase5.sh
+./start_phase5.sh
+
+# To stop
 ./stop_phase5.sh
 ```
 
 ---
 
-## Option 2: Manual Startup
+## Common Startup Errors & Fixes
 
-### Terminal 1: Start API
+### ❌ Error: `cannot import name 'User' from 'api.auth.models'`
+
+**Cause:** You're trying to run the old `api/app.py` file
+
+**Fix:** Use the correct command:
 ```bash
-python -m uvicorn api.app_complete:app --reload --port 8000
+# WRONG
+uvicorn api.app:app --reload
+
+# CORRECT
+python run_phase5.py
+# OR
+uvicorn api.app_complete:app --reload
 ```
 
-### Terminal 2: Start Dashboard
+### ❌ Error: Port 8000 already in use
+
+**Fix:**
 ```bash
-streamlit run dashboard/admin_dashboard.py
+# Windows
+netstat -ano | findstr :8000
+taskkill /PID <PID> /F
+
+# Linux/Mac
+lsof -ti:8000 | xargs kill -9
 ```
 
-### Terminal 3: Run Tests
+### ❌ Error: Module not found
+
+**Fix:**
 ```bash
-python scripts/test_phase5_complete.py
+# Install dependencies
+pip install -r requirements_phase5.txt
+
+# Make sure you're in project root
+cd LLM-Observability
+python run_phase5.py
 ```
 
 ---
@@ -136,30 +191,25 @@ curl -X GET "http://localhost:8000/api/admin/users" \
 
 ---
 
-## Troubleshooting
+## File Structure (What to Use)
 
-### API won't start?
-```bash
-# Check if port is in use
-lsof -i :8000
-
-# Kill existing process
-kill -9 $(lsof -ti:8000)
 ```
-
-### Dashboard won't connect?
-```bash
-# Verify API is running
-curl http://localhost:8000/
-
-# Should return service info
-```
-
-### Database issues?
-```bash
-# Reset database
-rm llm_observability.db
-python -m uvicorn api.app_complete:app --reload
+LLM-Observability/
+├── api/
+│   ├── app_complete.py       ✅ USE THIS (Phase 5)
+│   ├── app.py                ❌ OLD (Phase 4)
+│   ├── routes/
+│   │   ├── auth.py           ✅ Authentication
+│   │   ├── admin.py          ✅ User management
+│   │   ├── detection.py      ✅ Detection with auth
+│   │   └── monitoring.py     ✅ Health checks
+│   └── auth/
+│       ├── jwt_handler.py    ✅ JWT utilities
+│       └── models.py         ✅ Pydantic models
+├── run_phase5.py             ✅ Easy startup script
+├── requirements_phase5.txt   ✅ All dependencies
+└── dashboard/
+    └── admin_dashboard.py    ✅ Streamlit UI
 ```
 
 ---
@@ -168,7 +218,7 @@ python -m uvicorn api.app_complete:app --reload
 
 1. ✅ **Test locally** (you are here!)
 2. 📦 **Review code** in your IDE
-3. 🔀 **Merge to main** when ready
+3. 🔄 **Merge to main** when ready
 4. 🚀 **Deploy** to production
 
 ---
@@ -195,9 +245,10 @@ python -m uvicorn api.app_complete:app --reload
 ## Support
 
 For issues:
-1. Check logs: `tail -f logs/api.log`
-2. Review [TESTING_GUIDE.md](TESTING_GUIDE.md)
-3. Open GitHub issue
+1. Check you're using `api.app_complete:app` not `api.app:app`
+2. Check logs: `tail -f logs/api.log` (if using startup script)
+3. Review [TESTING_GUIDE.md](TESTING_GUIDE.md)
+4. Open GitHub issue
 
 ---
 
