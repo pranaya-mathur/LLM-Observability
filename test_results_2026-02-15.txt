@@ -1,0 +1,81 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.5, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\d\Desktop\Learn & Grow with GenAI\legal_clause_kb\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\d\Desktop\Sovereign-AI
+configfile: pytest.ini
+plugins: anyio-4.12.0, langsmith-0.4.49, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+collecting ... collected 27 items
+
+tests/test_api.py::TestRootEndpoints::test_root_endpoint PASSED          [  3%]
+tests/test_api.py::TestRootEndpoints::test_docs_accessible PASSED        [  7%]
+tests/test_api.py::TestRootEndpoints::test_openapi_schema PASSED         [ 11%]
+tests/test_api.py::TestHealthEndpoint::test_health_check_success PASSED  [ 14%]
+tests/test_api.py::TestHealthEndpoint::test_health_tier_distribution PASSED [ 18%]
+tests/test_api.py::TestDetectionEndpoint::test_detect_valid_request PASSED [ 22%]
+tests/test_api.py::TestDetectionEndpoint::test_detect_without_context PASSED [ 25%]
+tests/test_api.py::TestDetectionEndpoint::test_detect_empty_response PASSED [ 29%]
+tests/test_api.py::TestDetectionEndpoint::test_detect_hallucination PASSED [ 33%]
+tests/test_api.py::TestDetectionEndpoint::test_detect_prompt_injection PASSED [ 37%]
+tests/test_api.py::TestDetectionEndpoint::test_detect_missing_required_field PASSED [ 40%]
+tests/test_api.py::TestDetectionEndpoint::test_detect_invalid_json PASSED [ 44%]
+tests/test_api.py::TestBatchDetectionEndpoint::test_batch_detect_valid PASSED [ 48%]
+tests/test_api.py::TestBatchDetectionEndpoint::test_batch_detect_empty_list PASSED [ 51%]
+tests/test_api.py::TestBatchDetectionEndpoint::test_batch_detect_exceeds_limit PASSED [ 55%]
+tests/test_api.py::TestBatchDetectionEndpoint::test_batch_detect_mixed_valid_invalid PASSED [ 59%]
+tests/test_api.py::TestStatsEndpoint::test_stats_endpoint PASSED         [ 62%]
+tests/test_api.py::TestLogsEndpoint::test_logs_recent_default PASSED     [ 66%]
+tests/test_api.py::TestLogsEndpoint::test_logs_recent_with_limit PASSED  [ 70%]
+tests/test_api.py::TestLogsEndpoint::test_logs_recent_exceeds_max_limit PASSED [ 74%]
+tests/test_api.py::TestMetricsEndpoint::test_metrics_endpoint_exists PASSED [ 77%]
+tests/test_api.py::TestMetricsEndpoint::test_metrics_prometheus_format PASSED [ 81%]
+tests/test_api.py::TestErrorHandling::test_404_endpoint PASSED           [ 85%]
+tests/test_api.py::TestErrorHandling::test_method_not_allowed PASSED     [ 88%]
+tests/test_api.py::TestErrorHandling::test_invalid_content_type PASSED   [ 92%]
+tests/test_api.py::TestDatabasePersistence::test_detection_persisted PASSED [ 96%]
+tests/test_api.py::TestDatabasePersistence::test_batch_detections_persisted PASSED [100%]
+
+============================== warnings summary ===============================
+api\models.py:7
+  C:\Users\d\Desktop\Sovereign-AI\api\models.py:7: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class DetectionRequest(BaseModel):
+
+api\models.py:30
+  C:\Users\d\Desktop\Sovereign-AI\api\models.py:30: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class DetectionResponse(BaseModel):
+
+api\models.py:59
+  C:\Users\d\Desktop\Sovereign-AI\api\models.py:59: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class HealthResponse(BaseModel):
+
+api\models.py:93
+  C:\Users\d\Desktop\Sovereign-AI\api\models.py:93: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class LoginRequest(BaseModel):
+
+api\models.py:108
+  C:\Users\d\Desktop\Sovereign-AI\api\models.py:108: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class LoginResponse(BaseModel):
+
+api\models.py:127
+  C:\Users\d\Desktop\Sovereign-AI\api\models.py:127: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class UserResponse(BaseModel):
+
+api\models.py:148
+  C:\Users\d\Desktop\Sovereign-AI\api\models.py:148: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class UserCreateRequest(BaseModel):
+
+persistence\models.py:7
+  C:\Users\d\Desktop\Sovereign-AI\persistence\models.py:7: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+tests/test_api.py: 22 warnings
+  C:\Users\d\Desktop\Learn & Grow with GenAI\legal_clause_kb\venv\Lib\site-packages\sqlalchemy\sql\schema.py:3624: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_api.py::TestDetectionEndpoint::test_detect_invalid_json
+tests/test_api.py::TestErrorHandling::test_invalid_content_type
+  C:\Users\d\Desktop\Learn & Grow with GenAI\legal_clause_kb\venv\Lib\site-packages\httpx\_models.py:408: DeprecationWarning: Use 'content=<...>' to upload raw bytes/text content.
+    headers, stream = encode_request(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+====================== 27 passed, 32 warnings in 17.41s =======================

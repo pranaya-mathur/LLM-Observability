@@ -7,7 +7,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from api.main_v2 import app
-from persistence.database import Base, get_db
+from persistence.models import Base  # ← FIXED: Imported from models.py
+from persistence.database import get_db  # ← FIXED: Separated import
 from api.dependencies import get_control_tower
 from enforcement.control_tower_v3 import ControlTowerV3
 
