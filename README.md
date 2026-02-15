@@ -127,7 +127,7 @@ pytest tests/ -v
 └────┬─────────────┘
      │
      ├─ 95% ──▶ [Tier 1: Regex] ──────▶ <1ms
-     ├─ 4%  ──▶ [Tier 2: Embeddings] ─▶ ~250ms
+     ├─ 4%  ──▶ [Tier 2: Embeddings] ▶ ~250ms
      └─ 1%  ──▶ [Tier 3: LLM Agent] ──▶ ~3s
                        │
                        ▼
@@ -135,6 +135,8 @@ pytest tests/ -v
                  │ Decision │
                  └──────────┘
 ```
+
+📚 **Detailed Architecture:** [docs/architecture.md](docs/architecture.md)
 
 ## Project Structure
 
@@ -161,15 +163,6 @@ curl http://localhost:8000/metrics/stats
 # Admin UI
 streamlit run dashboard/admin_dashboard.py
 ```
-
-## Documentation
-
-📚 **In [`/docs`](docs/):**
-- [Architecture](docs/architecture.md) - 3-tier system deep dive
-- [API Reference](docs/api-reference.md) - Complete endpoints  
-- [Configuration](docs/configuration.md) - Tuning guide
-- [Deployment](docs/deployment.md) - Docker, K8s, scaling
-- [Extending](docs/extending.md) - Custom patterns
 
 ## Test Results
 
@@ -220,6 +213,6 @@ MIT License - See [LICENSE](LICENSE)
 
 ---
 
-**⚠️ Disclaimer:** Provides observability and detection, not guarantees. Domain-specific validation essential before production.
+⚠️ **Disclaimer:** Provides observability and detection, not guarantees. Domain-specific validation essential before production.
 
 **Made with ❤️ by [Pranaya Mathur](https://github.com/pranaya-mathur)**
