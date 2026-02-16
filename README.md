@@ -1,7 +1,7 @@
 # Sovereign AI - LLM Observability Platform
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-71%2F72%20passing-brightgreen.svg)](test_results_complete_2026-02-15.txt)
+[![Tests](https://img.shields.io/badge/tests-74%2F75%20passing-brightgreen.svg)](test_results_2026-02-16.txt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
@@ -112,7 +112,7 @@ pytest tests/ -v
 - ✅ 95/4/1 tier distribution
 - ✅ <1ms Tier 1, ~250ms Tier 2, ~3s Tier 3
 - ✅ 99% cache hit rate
-- ✅ 98.6% test coverage (71/72 passing)
+- ✅ 98.7% test coverage (74/75 passing)
 
 ## Architecture
 
@@ -147,7 +147,7 @@ sovereign-ai/
 ├── signals/          # Tier 2 detectors
 ├── agent/            # Tier 3 LLM agents
 ├── config/           # Policy configs
-├── tests/            # 72 comprehensive tests
+├── tests/            # 75 comprehensive tests
 └── k8s/              # Kubernetes manifests
 ```
 
@@ -166,18 +166,22 @@ streamlit run dashboard/admin_dashboard.py
 
 ## Test Results
 
-**Latest:** [Feb 15, 2026](test_results_complete_2026-02-15.txt) - **71/72 passing (98.6%)**
+**Latest:** [Feb 16, 2026](test_results_2026-02-16.txt) - **74/75 passing (98.7%)** 🎉
 
 ```bash
 ✅ API Tests:                    27/27
 ✅ Tier Router:                  13/13  
 ✅ Control Tower Integration:    10/10
+✅ Integration Tests:            3/3   (FIXED!)
 ✅ LangGraph Agent:              5/5
+✅ LLM Providers:                6/6
 ✅ Performance Benchmarks:       3/3
 ⚠️  Semantic Detector:            7/8 (1 threshold tuning issue)
 
 → Production Ready
 ```
+
+**Previous:** [Feb 15, 2026](test_results_complete_2026-02-15.txt) - 71/72 passing (98.6%)
 
 ## Requirements
 
