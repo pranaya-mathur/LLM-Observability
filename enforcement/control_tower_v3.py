@@ -161,10 +161,8 @@ class ControlTowerV3:
             
             return match
         except TimeoutException:
-            # Regex took too long - return None
             return None
         except Exception as e:
-            # Any other error - return None
             return None
     
     def _tier1_detect(self, text: str) -> Dict[str, Any]:
@@ -188,10 +186,8 @@ class ControlTowerV3:
             }
         
         # CRITICAL OPTIMIZATION: Check for pathological inputs FIRST
-        # This saves 2+ seconds by avoiding Tier 2 semantic processing
         is_pathological, path_reason, path_confidence = is_pathological_input_early(text)
         if is_pathological:
-            # Immediately return as blocked - don't waste CPU on semantic analysis
             return {
                 "confidence": path_confidence,
                 "failure_class": FailureClass.PROMPT_INJECTION,
@@ -201,12 +197,11 @@ class ControlTowerV3:
             }
         
         # CRITICAL FIX: Truncate long text to prevent catastrophic backtracking
-        # Regex on 500+ chars with .* can cause exponential time
         original_length = len(text)
         if original_length > 500:
             text = text[:500]
         
-        # Handle very long text (potential DOS) - now 10000 char limit
+        # Handle very long text (potential DOS)
         if original_length > 10000:
             return {
                 "confidence": 0.7,
@@ -218,7 +213,7 @@ class ControlTowerV3:
         
         # Check for strong anti-patterns (allow patterns)
         for pattern in self.patterns:
-            if pattern.failure_class is None:  # Allow patterns
+            if pattern.failure_class is None:
                 try:
                     match = self._safe_regex_search(pattern.compiled, text)
                     if match:
@@ -231,7 +226,6 @@ class ControlTowerV3:
                             "explanation": f"Strong indicator detected: {pattern.description}"
                         }
                 except Exception as e:
-                    # Skip patterns that cause errors
                     continue
         
         # Check for failure patterns (block patterns)
@@ -252,7 +246,6 @@ class ControlTowerV3:
                                 "explanation": f"{pattern.failure_class.value}: {pattern.description}"
                             }
                 except Exception as e:
-                    # Skip patterns that cause errors
                     continue
         
         if best_match:
@@ -263,13 +256,13 @@ class ControlTowerV3:
             "confidence": 0.5,
             "failure_class": None,
             "method": "regex_uncertain",
-            "should_allow": None,  # Uncertain
+            "should_allow": None,
             "explanation": "No strong patterns detected - needs semantic analysis"
         }
-    
+
     def _tier2_detect(self, text: str, tier1_result: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Tier 2: Semantic embedding similarity.
+        Tier 2: Semantic embedding similarity with Vector DB early return.
         
         Args:
             text: Text to analyze
@@ -279,7 +272,6 @@ class ControlTowerV3:
             Detection result dict
         """
         if not self.tier2_available or self.semantic_detector is None:
-            # Fallback - allow but with low confidence
             return {
                 "confidence": 0.5,
                 "failure_class": None,
@@ -303,14 +295,41 @@ class ControlTowerV3:
             general_classes = ["fabricated_concept", "missing_grounding", "overconfidence", 
                              "domain_mismatch", "fabricated_fact"]
             
+            # Failure class mapping (used for Vector DB results)
+            class_mapping = {
+                "prompt_injection": FailureClass.PROMPT_INJECTION,
+                "bias": FailureClass.BIAS,
+                "toxicity": FailureClass.TOXICITY,
+                "fabricated_concept": FailureClass.FABRICATED_CONCEPT,
+                "missing_grounding": FailureClass.MISSING_GROUNDING,
+                "overconfidence": FailureClass.OVERCONFIDENCE,
+                "domain_mismatch": FailureClass.DOMAIN_MISMATCH,
+                "fabricated_fact": FailureClass.FABRICATED_FACT,
+            }
+            
             # Check security patterns first (higher priority)
             for failure_class in security_classes:
                 try:
                     result = self.semantic_detector.detect(
                         response=text,
                         failure_class=failure_class,
-                        threshold=0.10  # Lower threshold for security = more sensitive
+                        threshold=0.10
                     )
+                    
+                    # ✅ NEW: Check if Vector DB detected something (early return)
+                    if result.get("method") == "vector_db":
+                        vdb_class = result.get("detected_class", failure_class)
+                        vdb_confidence = result["confidence"]
+                        
+                        return {
+                            "confidence": vdb_confidence,
+                            "failure_class": class_mapping.get(vdb_class),
+                            "method": "vector_db",
+                            "should_allow": False,
+                            "explanation": f"Vector DB detected: {vdb_class} (score: {vdb_confidence:.3f})"
+                        }
+                    
+                    # Regular embedding detection
                     confidence = result["confidence"]
                     detection_details.append(f"{failure_class}:{confidence:.2f}")
                     
@@ -327,8 +346,23 @@ class ControlTowerV3:
                     result = self.semantic_detector.detect(
                         response=text,
                         failure_class=failure_class,
-                        threshold=0.30  # ✅ Higher threshold for general = less false positives
+                        threshold=0.30
                     )
+                    
+                    # ✅ NEW: Check if Vector DB detected something (early return)
+                    if result.get("method") == "vector_db":
+                        vdb_class = result.get("detected_class", failure_class)
+                        vdb_confidence = result["confidence"]
+                        
+                        return {
+                            "confidence": vdb_confidence,
+                            "failure_class": class_mapping.get(vdb_class),
+                            "method": "vector_db",
+                            "should_allow": False,
+                            "explanation": f"Vector DB detected: {vdb_class} (score: {vdb_confidence:.3f})"
+                        }
+                    
+                    # Regular embedding detection
                     confidence = result["confidence"]
                     detection_details.append(f"{failure_class}:{confidence:.2f}")
                     
@@ -343,22 +377,11 @@ class ControlTowerV3:
             failure_class_enum = None
             if detected_class:
                 try:
-                    # Map semantic class names to FailureClass enum
-                    class_mapping = {
-                        "prompt_injection": FailureClass.PROMPT_INJECTION,
-                        "bias": FailureClass.BIAS,
-                        "toxicity": FailureClass.TOXICITY,
-                        "fabricated_concept": FailureClass.FABRICATED_CONCEPT,
-                        "missing_grounding": FailureClass.MISSING_GROUNDING,
-                        "overconfidence": FailureClass.OVERCONFIDENCE,
-                        "domain_mismatch": FailureClass.DOMAIN_MISMATCH,
-                        "fabricated_fact": FailureClass.FABRICATED_FACT,
-                    }
                     failure_class_enum = class_mapping.get(detected_class)
                 except Exception as e:
                     print(f"Warning: Could not map failure class: {e}")
             
-            explanation = f"Semantic analysis: {', '.join(detection_details[:3])}" if detection_details else "Semantic analysis completed"
+            explanation = f"Semantic analysis: {', '.join(detection_details[:3])}..." if detection_details else "Semantic analysis completed"
             
             return {
                 "confidence": max_similarity,
@@ -376,7 +399,6 @@ class ControlTowerV3:
                 "should_allow": True,
                 "explanation": f"Semantic detection failed - allowing conservatively"
             }
-    
     def _tier3_detect(self, text: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Tier 3: LLM agent reasoning.
@@ -389,7 +411,6 @@ class ControlTowerV3:
             Detection result dict
         """
         if not self.tier3_available or self.llm_agent is None:
-            # Conservative fallback - allow but log
             return {
                 "confidence": 0.5,
                 "failure_class": None,
@@ -445,11 +466,10 @@ class ControlTowerV3:
         context = context or {}
         
         try:
-            # Tier 1: Fast regex detection (includes early pathological check)
+            # Tier 1: Fast regex detection
             tier1_result = self._tier1_detect(llm_response)
             
             # CRITICAL: If pathological input detected, return immediately
-            # Don't waste 2+ seconds on Tier 2 semantic analysis
             if tier1_result.get("method") == "regex_pathological":
                 processing_time = (time.time() - start_time) * 1000
                 
@@ -464,7 +484,7 @@ class ControlTowerV3:
                     explanation=tier1_result.get("explanation", "Pathological input blocked")
                 )
             
-            # Route to appropriate tier based on confidence
+            # Route to appropriate tier
             tier_decision = self.tier_router.route(tier1_result)
             
             # Execute appropriate tier
@@ -473,22 +493,18 @@ class ControlTowerV3:
             elif tier_decision.tier == 2:
                 tier2_result = self._tier2_detect(llm_response, tier1_result)
                 
-                # ✅ NEW: Escalate to Tier 3 for gray zone cases
+                # Escalate to Tier 3 for gray zone cases
                 confidence = tier2_result.get("confidence", 0.0)
                 failure_detected = tier2_result.get("failure_class") is not None
                 
-                # Escalate if:
-                # 1. Gray zone confidence (5-15%) regardless of detection
-                # 2. OR low confidence detection (15-25%)
                 should_escalate_to_tier3 = (
-                    (0.05 <= confidence < 0.15) or  # Gray zone
-                    (failure_detected and confidence < 0.25)  # Low confidence detection
+                    (0.05 <= confidence < 0.15) or
+                    (failure_detected and confidence < 0.25)
                 )
                 
                 if should_escalate_to_tier3 and self.tier3_available:
                     print(f"⬆️ Escalating to Tier 3: confidence={confidence:.1%}, needs deep analysis")
                     final_result = self._tier3_detect(llm_response, context)
-                    # Override tier_used to reflect actual tier
                     tier_decision = TierDecision(tier=3, reason="Escalated from Tier 2")
                 else:
                     final_result = tier2_result
@@ -507,7 +523,6 @@ class ControlTowerV3:
                 action = policy.action
                 severity = policy.severity
             else:
-                # No failure detected - determine based on confidence
                 if should_allow is False:
                     action = EnforcementAction.WARN
                     severity = SeverityLevel.MEDIUM
@@ -529,7 +544,6 @@ class ControlTowerV3:
             )
         
         except Exception as e:
-            # Fallback for any unexpected errors
             print(f"Error in evaluate_response: {e}")
             processing_time = (time.time() - start_time) * 1000
             return DetectionResult(
@@ -544,42 +558,25 @@ class ControlTowerV3:
             )
     
     def get_tier_stats(self) -> Dict[str, Any]:
-        """
-        Get tier distribution statistics.
-        
-        Returns:
-            Dict with complete statistics including:
-            - total: Total number of detections
-            - tier1_count, tier2_count, tier3_count: Counts per tier
-            - distribution: Percentage distribution
-            - health: Health status
-        """
-        # Get raw stats from tier router
+        """Get tier distribution statistics."""
         tier_stats = self.tier_router.tier_stats
         distribution = self.tier_router.get_distribution()
         health_ok, health_msg = self.tier_router.check_distribution_health()
         
         return {
-            # Total and counts
             "total": tier_stats["total"],
             "tier1_count": tier_stats["tier1"],
             "tier2_count": tier_stats["tier2"],
             "tier3_count": tier_stats["tier3"],
-            
-            # Distribution percentages
             "distribution": {
                 "tier1_pct": distribution["tier1_pct"],
                 "tier2_pct": distribution["tier2_pct"],
                 "tier3_pct": distribution["tier3_pct"],
             },
-            
-            # Health status
             "health": {
                 "is_healthy": health_ok,
                 "message": health_msg
             },
-            
-            # Tier availability
             "tier_availability": {
                 "tier1": True,
                 "tier2": self.tier2_available,

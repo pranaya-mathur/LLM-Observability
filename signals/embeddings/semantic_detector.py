@@ -356,23 +356,16 @@ class SemanticDetector:
         """Detect failure using HYBRID approach: Vector DB + Hardcoded patterns.
         
         Tier 2 Detection Strategy:
-        1. Try Vector DB first (policy-driven, hot-reloadable)
+        1. Try Vector DB first (policy-driven, hot-reloadable) - EARLY RETURN if confident
         2. Fallback to hardcoded patterns if Vector DB misses
-        
-        This gives best of both worlds:
-        - Flexibility: Add new harms via policy.yaml
-        - Reliability: Hardcoded patterns as safety net
         
         Args:
             response: LLM response text to analyze
-            failure_class: Type of failure to detect
-            threshold: Similarity threshold for detection (default: 0.10)
+            failure_class: Type of failure caller is checking for
+            threshold: Similarity threshold for hardcoded patterns (default: 0.10)
             
         Returns:
-            Dictionary with detection results:
-                - detected: bool indicating if failure was found
-                - confidence: float similarity score (0.0-1.0)
-                - explanation: str describing the detection
+            Dictionary with detection results
         """
         if not response or len(response.strip()) < 10:
             return {
@@ -389,34 +382,32 @@ class SemanticDetector:
                 "explanation": "Pathological text skipped (highly repetitive or attack pattern)"
             }
         
-        # TIER 2A: Vector DB Detection (Policy-Driven)
+        # ✅ TIER 2A: Vector DB Detection (Policy-Driven) - FIXED VERSION
         try:
             from signals.embeddings.harm_vector_db import get_harm_db
             
             harm_db = get_harm_db()
-            
-            # Check if policy was updated and reload
             harm_db.reload_if_changed()
             
-            # Detect using vector search
-            # Note: Vector DB threshold is higher (0.55) for precision
-            detected_class, vector_score = harm_db.detect_harm(response, threshold=0.55)
+            # ✅ Use 0.20 threshold for better medical harm detection
+            detected_class, vector_score = harm_db.detect_harm(response, threshold=0.20)
             
-            if detected_class == failure_class and vector_score > 0.55:
-                logger.info(f"Vector DB detected: {detected_class} (score: {vector_score:.3f})")
+            # ✅ Early return if ANY harm detected above threshold (don't filter by requested class)
+            if detected_class and vector_score > 0.20:
+                logger.info(f"✅ Vector DB detected: {detected_class} (score: {vector_score:.3f})")
                 return {
                     "detected": True,
                     "confidence": vector_score,
                     "explanation": f"Vector DB match: {detected_class} (score: {vector_score:.3f})",
-                    "method": "vector_db"
+                    "method": "vector_db",
+                    "detected_class": detected_class
                 }
+            
         except Exception as e:
-            logger.warning(f"Vector DB detection failed: {e}, falling back to hardcoded patterns")
+            logger.warning(f"❌ Vector DB detection failed: {e}, falling back to hardcoded patterns")
         
         # TIER 2B: Fallback to hardcoded patterns (existing logic)
         max_similarity, explanation = self._compute_similarity(response, failure_class)
-        
-        # Deterministic threshold-based decision
         detected = max_similarity >= threshold
         
         return {
