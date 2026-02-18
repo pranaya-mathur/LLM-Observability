@@ -9,6 +9,7 @@ Key Features:
 - Lightweight: Uses 80MB model that runs on CPU
 - High ROI: 50-70% accuracy improvement over regex
 - Production-ready: Timeout protection, input validation, proper error handling
+- HYBRID: Vector DB (policy-driven) + Hardcoded patterns (safety net)
 """
 
 from typing import Dict, Any, List, Tuple, Optional
@@ -143,10 +144,11 @@ def run_with_timeout(func, args=(), kwargs=None, timeout=3.0):
     return result[0]
 
 class SemanticDetector:
-    """Fast, deterministic semantic similarity detection.
+    """Fast, deterministic semantic similarity detection with HYBRID approach.
     
-    Uses sentence-transformers to detect failure patterns based on
-    semantic similarity rather than keyword matching.
+    Uses both:
+    1. Vector DB (policy-driven from policy.yaml) - flexible, hot-reloadable
+    2. Hardcoded patterns (fallback) - reliable safety net
     
     Attributes:
         model: SentenceTransformer model for encoding text
@@ -351,9 +353,15 @@ class SemanticDetector:
     
     @lru_cache(maxsize=10000)
     def detect(self, response: str, failure_class: str, threshold: float = 0.10) -> Dict[str, Any]:
-        """Detect failure using semantic similarity (cached for determinism).
+        """Detect failure using HYBRID approach: Vector DB + Hardcoded patterns.
         
-        Industry standard: LRU cache provides 99%+ hit rate in production.
+        Tier 2 Detection Strategy:
+        1. Try Vector DB first (policy-driven, hot-reloadable)
+        2. Fallback to hardcoded patterns if Vector DB misses
+        
+        This gives best of both worlds:
+        - Flexibility: Add new harms via policy.yaml
+        - Reliability: Hardcoded patterns as safety net
         
         Args:
             response: LLM response text to analyze
@@ -381,7 +389,31 @@ class SemanticDetector:
                 "explanation": "Pathological text skipped (highly repetitive or attack pattern)"
             }
         
-        # Compute semantic similarity
+        # TIER 2A: Vector DB Detection (Policy-Driven)
+        try:
+            from signals.embeddings.harm_vector_db import get_harm_db
+            
+            harm_db = get_harm_db()
+            
+            # Check if policy was updated and reload
+            harm_db.reload_if_changed()
+            
+            # Detect using vector search
+            # Note: Vector DB threshold is higher (0.55) for precision
+            detected_class, vector_score = harm_db.detect_harm(response, threshold=0.55)
+            
+            if detected_class == failure_class and vector_score > 0.55:
+                logger.info(f"Vector DB detected: {detected_class} (score: {vector_score:.3f})")
+                return {
+                    "detected": True,
+                    "confidence": vector_score,
+                    "explanation": f"Vector DB match: {detected_class} (score: {vector_score:.3f})",
+                    "method": "vector_db"
+                }
+        except Exception as e:
+            logger.warning(f"Vector DB detection failed: {e}, falling back to hardcoded patterns")
+        
+        # TIER 2B: Fallback to hardcoded patterns (existing logic)
         max_similarity, explanation = self._compute_similarity(response, failure_class)
         
         # Deterministic threshold-based decision
@@ -390,7 +422,7 @@ class SemanticDetector:
         return {
             "detected": detected,
             "confidence": max_similarity,
-            "explanation": f"Semantic detection: {explanation}",
+            "explanation": f"Pattern match: {explanation}",
             "method": "embedding"
         }
     
