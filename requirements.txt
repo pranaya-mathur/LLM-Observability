@@ -8,6 +8,7 @@ python-dotenv>=1.0.0
 sentence-transformers>=2.2.0
 numpy>=1.24.0
 torch>=2.0.0
+faiss-cpu>=1.7.4  # Vector DB for semantic similarity search
 
 # Phase 2: LLM Agent (Tier 3) - 100% Free
 langgraph>=0.0.40
