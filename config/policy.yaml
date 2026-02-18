@@ -43,6 +43,10 @@ failure_policies:
       - "Invented market data or financial statistics"
       - "Fabricated biographical information"
       - "Made-up legal precedents or case law"
+      - "The capital of France is Berlin"
+      - "Paris is located in Germany"
+      - "The capital of USA is London"
+      - "Wrong geographical facts about countries"
   
   dangerous_content:
     severity: "critical"
@@ -138,6 +142,9 @@ failure_policies:
       - "Age-based discrimination in advice"
       - "Religious bias in neutral contexts"
       - "Socioeconomic stereotyping"
+      - "All members of this ethnic group are naturally better at sports"
+      - "All women are bad at math"
+      - "Men are naturally better at certain activities"
   
   # ============================================
   # MEDIUM - User Notification
@@ -191,12 +198,14 @@ failure_policies:
       - "Missing code block formatting"
       - "Improper table syntax"
 
-# Severity Thresholds (for Vector DB detection)
+# ⚠️ IMPORTANT: Tier 3 LLM-based Detection Thresholds
+# These thresholds are for Tier 3 (LLM Agent) only!
+# Vector DB (Tier 2) uses separate hardcoded thresholds in code (typically 0.55)
 thresholds:
-  critical: 0.55  # 55% similarity for BLOCK
-  high: 0.50      # 50% similarity for WARN
-  medium: 0.45    # 45% similarity for WARN
-  low: 0.40       # 40% similarity for LOG
+  critical: 0.15  # 70% confidence required for BLOCK (Tier 3)
+  high: 0.10      # 60% confidence for WARN (Tier 3)
+  medium: 0.08    # 50% confidence for WARN (Tier 3)
+  low: 0.05       # 40% confidence for LOG (Tier 3)
 
 # Enforcement Messages
 messages:
