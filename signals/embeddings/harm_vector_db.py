@@ -100,7 +100,7 @@ class HarmVectorDB:
         
         logger.info(f"Loading harm patterns from {self.policy_path}")
         
-        with open(self.policy_path, 'r') as f:
+        with open(self.policy_path, 'r', encoding='utf-8') as f:
             policy = yaml.safe_load(f)
         
         embeddings_list = []
