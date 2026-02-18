@@ -1,162 +1,145 @@
-"""Tier-based routing for 3-tier detection architecture.
+"""Tier routing logic for 3-tier detection system.
 
-Routes requests to appropriate tier based on confidence levels:
-- Tier 1 (95%): Deterministic regex (fast)
-- Tier 2 (4%): Semantic embeddings (medium)
-- Tier 3 (1%): LLM agents (slow but accurate)
+Routes requests to appropriate detection tier based on confidence:
+- Tier 1: High confidence regex matches (>80%)
+- Tier 2: Medium confidence semantic analysis (15-80%)
+- Tier 3: Low/uncertain confidence LLM reasoning (<15% or gray zone)
 """
 
-from typing import Dict, Any, Tuple
 from dataclasses import dataclass
+from typing import Dict, Any, Tuple
 
 
 @dataclass
 class TierDecision:
     """Decision about which tier to use."""
-    tier: int
-    method: str
-    reason: str
-    confidence: float
+    tier: int  # 1, 2, or 3
+    reason: str  # Why this tier was chosen
 
 
 class TierRouter:
-    """Routes detection requests to appropriate tier."""
+    """Routes detection requests to appropriate tier based on confidence."""
     
-    def __init__(
-        self,
-        tier1_strong_threshold: float = 0.8,
-        tier1_weak_threshold: float = 0.3,
-        tier2_threshold: float = 0.75
-    ):
-        """
-        Initialize tier router with confidence thresholds.
-        
-        Args:
-            tier1_strong_threshold: Strong pattern confidence (>=0.8)
-            tier1_weak_threshold: Anti-pattern confidence (<=0.3)
-            tier2_threshold: Semantic detection confidence (0.75)
-        """
-        self.tier1_strong = tier1_strong_threshold
-        self.tier1_weak = tier1_weak_threshold
-        self.tier2_threshold = tier2_threshold
-        
-        # Tracking for 95/4/1 distribution
+    def __init__(self):
+        """Initialize tier router with statistics tracking."""
         self.tier_stats = {
+            "total": 0,
             "tier1": 0,
             "tier2": 0,
-            "tier3": 0,
-            "total": 0
+            "tier3": 0
         }
     
-    def route(self, initial_result: Dict[str, Any]) -> TierDecision:
-        """
-        Determine which tier should handle this request.
+    def route(self, tier1_result: Dict[str, Any]) -> TierDecision:
+        """Route to appropriate tier based on Tier 1 confidence.
+        
+        Routing Logic:
+        - Tier 1 (>80%): Strong regex match, decision final
+        - Tier 3 (5-15%): Gray zone, needs LLM deep reasoning
+        - Tier 2 (15-80%): Medium confidence, semantic analysis sufficient
+        - Tier 3 (<5%): Very uncertain, needs LLM analysis
         
         Args:
-            initial_result: Result from initial detection attempt
+            tier1_result: Result dictionary from Tier 1 detection
             
         Returns:
-            TierDecision with tier number and reasoning
+            TierDecision indicating which tier to use
         """
-        confidence = initial_result.get("confidence", 0.0)
-        method = initial_result.get("method", "unknown")
+        self.tier_stats["total"] += 1
         
-        # Tier 1: Strong confidence from regex
-        if method == "regex_strong" and confidence >= self.tier1_strong:
-            self._record_tier(1)
+        confidence = tier1_result.get("confidence", 0.5)
+        should_allow = tier1_result.get("should_allow")
+        failure_class = tier1_result.get("failure_class")
+        
+        # Tier 1: High confidence match (>80%)
+        # Strong regex detection - decision is final
+        if confidence >= 0.80:
+            self.tier_stats["tier1"] += 1
             return TierDecision(
-                tier=1,
-                method="regex_strong",
-                reason="High confidence regex pattern match",
-                confidence=confidence
+                tier=1, 
+                reason=f"High confidence regex match ({confidence:.0%})"
             )
         
-        # Tier 1: Clear anti-pattern
-        if method == "regex_anti" and confidence >= self.tier1_strong:
-            self._record_tier(1)
+        # Tier 3: Gray zone (5-15% confidence)
+        # This is where dangerous content often falls - needs LLM analysis
+        # Examples: "stop taking insulin" (9.8%), subtle medical misinformation
+        elif 0.05 <= confidence < 0.15:
+            self.tier_stats["tier3"] += 1
             return TierDecision(
-                tier=1,
-                method="regex_anti",
-                reason="Clear anti-pattern detected",
-                confidence=confidence
+                tier=3,
+                reason=f"Gray zone confidence ({confidence:.0%}) - needs LLM reasoning"
             )
         
-        # Tier 2: Gray zone - use semantic detection
-        if self.tier1_weak < confidence < self.tier1_strong:
-            self._record_tier(2)
+        # Tier 2: Medium confidence (15-80%)
+        # Semantic analysis should be sufficient
+        elif 0.15 <= confidence < 0.80:
+            self.tier_stats["tier2"] += 1
             return TierDecision(
                 tier=2,
-                method="semantic",
-                reason="Gray zone - requires semantic analysis",
-                confidence=confidence
+                reason=f"Medium confidence ({confidence:.0%}) - semantic analysis"
             )
         
-        # Tier 3: Edge case - use LLM agent
-        self._record_tier(3)
-        return TierDecision(
-            tier=3,
-            method="llm_agent",
-            reason="Edge case requiring multi-step reasoning",
-            confidence=confidence
-        )
-    
-    def _record_tier(self, tier: int):
-        """Record tier usage for statistics."""
-        self.tier_stats[f"tier{tier}"] += 1
-        self.tier_stats["total"] += 1
+        # Tier 3: Very low confidence (<5%)
+        # Too uncertain - needs deep LLM reasoning
+        else:
+            self.tier_stats["tier3"] += 1
+            return TierDecision(
+                tier=3,
+                reason=f"Very low confidence ({confidence:.0%}) - needs deep analysis"
+            )
     
     def get_distribution(self) -> Dict[str, float]:
-        """
-        Get current tier distribution percentages.
+        """Get percentage distribution across tiers.
         
         Returns:
-            Dict with tier1_pct, tier2_pct, tier3_pct
+            Dictionary with tier percentages
         """
         total = self.tier_stats["total"]
         if total == 0:
-            return {"tier1_pct": 0.0, "tier2_pct": 0.0, "tier3_pct": 0.0, "total_requests": 0}
+            return {
+                "tier1_pct": 0.0,
+                "tier2_pct": 0.0,
+                "tier3_pct": 0.0
+            }
         
         return {
             "tier1_pct": (self.tier_stats["tier1"] / total) * 100,
             "tier2_pct": (self.tier_stats["tier2"] / total) * 100,
-            "tier3_pct": (self.tier_stats["tier3"] / total) * 100,
-            "total_requests": total
+            "tier3_pct": (self.tier_stats["tier3"] / total) * 100
         }
     
     def check_distribution_health(self) -> Tuple[bool, str]:
-        """
-        Check if tier distribution is healthy (target: 95/4/1).
+        """Check if tier distribution is healthy (close to 95/4/1 target).
         
         Returns:
-            Tuple of (is_healthy, status_message)
+            Tuple of (is_healthy, message)
         """
         dist = self.get_distribution()
         
-        if dist["total_requests"] < 100:
-            return True, "Not enough data for health check (need 100+ requests)"
+        # Target: 95% Tier 1, 4% Tier 2, 1% Tier 3
+        # Allow some variance: Tier 1 (90-98%), Tier 2 (2-8%), Tier 3 (0-5%)
+        tier1_ok = 90 <= dist["tier1_pct"] <= 98
+        tier2_ok = 2 <= dist["tier2_pct"] <= 8
+        tier3_ok = 0 <= dist["tier3_pct"] <= 5
         
-        tier1 = dist["tier1_pct"]
-        tier2 = dist["tier2_pct"]
-        tier3 = dist["tier3_pct"]
+        if tier1_ok and tier2_ok and tier3_ok:
+            return True, "Distribution healthy (close to 95/4/1 target)"
         
-        # Healthy ranges (with tolerance)
-        tier1_healthy = 92 <= tier1 <= 98  # Target: 95%
-        tier2_healthy = 2 <= tier2 <= 7    # Target: 4%
-        tier3_healthy = 0 <= tier3 <= 3    # Target: 1%
+        # Generate helpful message
+        issues = []
+        if not tier1_ok:
+            issues.append(f"Tier 1: {dist['tier1_pct']:.1f}% (target: 90-98%)")
+        if not tier2_ok:
+            issues.append(f"Tier 2: {dist['tier2_pct']:.1f}% (target: 2-8%)")
+        if not tier3_ok:
+            issues.append(f"Tier 3: {dist['tier3_pct']:.1f}% (target: 0-5%)")
         
-        if tier1_healthy and tier2_healthy and tier3_healthy:
-            return True, f"✅ Healthy distribution - Tier1: {tier1:.1f}%, Tier2: {tier2:.1f}%, Tier3: {tier3:.1f}%"
-        
-        warnings = []
-        if not tier1_healthy:
-            warnings.append(f"⚠️ Tier1 at {tier1:.1f}% (target: 95%)")
-        if not tier2_healthy:
-            warnings.append(f"⚠️ Tier2 at {tier2:.1f}% (target: 4%)")
-        if not tier3_healthy:
-            warnings.append(f"⚠️ Tier3 at {tier3:.1f}% (target: 1%)")
-        
-        return False, " | ".join(warnings)
+        return False, f"Distribution issues: {', '.join(issues)}"
     
     def reset_stats(self):
         """Reset tier statistics."""
-        self.tier_stats = {"tier1": 0, "tier2": 0, "tier3": 0, "total": 0}
+        self.tier_stats = {
+            "total": 0,
+            "tier1": 0,
+            "tier2": 0,
+            "tier3": 0
+        }

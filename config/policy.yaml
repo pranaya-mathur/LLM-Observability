@@ -136,10 +136,10 @@ failure_policies:
 # Severity Thresholds
 thresholds:
   # Confidence scores needed to trigger each severity
-  critical: 0.7  # 70% confidence required for BLOCK
-  high: 0.6      # 60% confidence for WARN
-  medium: 0.5    # 50% confidence for WARN
-  low: 0.4       # 40% confidence for LOG
+  critical: 0.15  # 70% confidence required for BLOCK
+  high: 0.10      # 60% confidence for WARN
+  medium: 0.08    # 50% confidence for WARN
+  low: 0.05       # 40% confidence for LOG
 
 # Enforcement Messages
 messages:

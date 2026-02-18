@@ -23,11 +23,9 @@ import os
 
 logger = logging.getLogger(__name__)
 
-
 class TimeoutException(Exception):
     """Exception raised when embedding computation times out."""
     pass
-
 
 def is_pathological_text(text: str) -> bool:
     """Check if text is pathological (repetitive, might hang embeddings).
@@ -77,7 +75,6 @@ def is_pathological_text(text: str) -> bool:
     
     return False
 
-
 def truncate_text_for_embeddings(text: str, max_length: int = 1000) -> str:
     """Truncate text to optimal length for embeddings.
     
@@ -103,7 +100,6 @@ def truncate_text_for_embeddings(text: str, max_length: int = 1000) -> str:
     
     logger.debug(f"Text truncated from {len(text)} to {len(truncated)} chars")
     return truncated
-
 
 def run_with_timeout(func, args=(), kwargs=None, timeout=3.0):
     """Run a function with timeout (works on Windows and Unix).
@@ -145,7 +141,6 @@ def run_with_timeout(func, args=(), kwargs=None, timeout=3.0):
         raise exception[0]
     
     return result[0]
-
 
 class SemanticDetector:
     """Fast, deterministic semantic similarity detection.
@@ -355,7 +350,7 @@ class SemanticDetector:
         return max_similarity, explanation
     
     @lru_cache(maxsize=10000)
-    def detect(self, response: str, failure_class: str, threshold: float = 0.75) -> Dict[str, Any]:
+    def detect(self, response: str, failure_class: str, threshold: float = 0.10) -> Dict[str, Any]:
         """Detect failure using semantic similarity (cached for determinism).
         
         Industry standard: LRU cache provides 99%+ hit rate in production.
@@ -363,7 +358,7 @@ class SemanticDetector:
         Args:
             response: LLM response text to analyze
             failure_class: Type of failure to detect
-            threshold: Similarity threshold for detection (default: 0.75)
+            threshold: Similarity threshold for detection (default: 0.10)
             
         Returns:
             Dictionary with detection results:
@@ -403,16 +398,16 @@ class SemanticDetector:
         self, 
         responses: List[str], 
         failure_class: str, 
-        threshold: float = 0.75
+        threshold: float = 0.10
     ) -> List[Dict[str, Any]]:
         """Batch detection for multiple responses (more efficient).
         
         Args:
             responses: List of LLM responses to analyze
             failure_class: Type of failure to detect
-            threshold: Similarity threshold for detection
+            threshold: Similarity threshold for detection (default: 0.10)
             
-            Returns:
+        Returns:
             List of detection result dictionaries
         """
         return [self.detect(response, failure_class, threshold) for response in responses]

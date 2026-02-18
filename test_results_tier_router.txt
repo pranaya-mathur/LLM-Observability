@@ -1,0 +1,24 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.5, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\d\Desktop\Learn & Grow with GenAI\legal_clause_kb\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\d\Desktop\Sovereign-AI
+configfile: pytest.ini
+plugins: anyio-4.12.0, langsmith-0.4.49, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+collecting ... collected 13 items
+
+tests/test_tier_router.py::TestTierRouter::test_boundary_conditions PASSED [  7%]
+tests/test_tier_router.py::TestTierRouter::test_custom_thresholds PASSED [ 15%]
+tests/test_tier_router.py::TestTierRouter::test_distribution_health_check_healthy PASSED [ 23%]
+tests/test_tier_router.py::TestTierRouter::test_distribution_health_check_insufficient_data PASSED [ 30%]
+tests/test_tier_router.py::TestTierRouter::test_distribution_health_check_unhealthy_tier1 PASSED [ 38%]
+tests/test_tier_router.py::TestTierRouter::test_distribution_tracking PASSED [ 46%]
+tests/test_tier_router.py::TestTierRouter::test_reset_stats PASSED       [ 53%]
+tests/test_tier_router.py::TestTierRouter::test_tier1_anti_pattern PASSED [ 61%]
+tests/test_tier_router.py::TestTierRouter::test_tier1_strong_pattern PASSED [ 69%]
+tests/test_tier_router.py::TestTierRouter::test_tier2_gray_zone PASSED   [ 76%]
+tests/test_tier_router.py::TestTierRouter::test_tier3_edge_case_high_confidence_non_standard PASSED [ 84%]
+tests/test_tier_router.py::TestTierRouter::test_tier3_edge_case_low_confidence PASSED [ 92%]
+tests/test_tier_router.py::TestTierRouter::test_tier_decision_dataclass PASSED [100%]
+
+============================= 13 passed in 0.04s ==============================

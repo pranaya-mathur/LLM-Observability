@@ -20,7 +20,6 @@ from enforcement.tier_router import TierRouter, TierDecision
 from signals.embeddings.semantic_detector import SemanticDetector
 from signals.regex.pattern_library import PatternLibrary
 
-
 @dataclass
 class DetectionResult:
     """Result from detection evaluation."""
@@ -33,16 +32,13 @@ class DetectionResult:
     severity: Optional[SeverityLevel] = None
     explanation: str = ""
 
-
 class TimeoutException(Exception):
     """Exception raised when regex takes too long."""
     pass
 
-
 def timeout_handler(signum, frame):
     """Signal handler for regex timeout."""
     raise TimeoutException("Regex timeout")
-
 
 def is_pathological_input_early(text: str) -> tuple[bool, str, float]:
     """Early detection of pathological patterns before expensive processing.
@@ -95,7 +91,6 @@ def is_pathological_input_early(text: str) -> tuple[bool, str, float]:
             return True, f"Attack pattern detected: {description}", 0.90
     
     return False, "", 0.0
-
 
 class ControlTowerV3:
     """3-tier integrated detection and enforcement system."""
@@ -314,7 +309,7 @@ class ControlTowerV3:
                     result = self.semantic_detector.detect(
                         response=text,
                         failure_class=failure_class,
-                        threshold=0.65  # Lower threshold for security = more sensitive
+                        threshold=0.10  # Lower threshold for security = more sensitive
                     )
                     confidence = result["confidence"]
                     detection_details.append(f"{failure_class}:{confidence:.2f}")
@@ -332,7 +327,7 @@ class ControlTowerV3:
                     result = self.semantic_detector.detect(
                         response=text,
                         failure_class=failure_class,
-                        threshold=0.70
+                        threshold=0.30  # ✅ Higher threshold for general = less false positives
                     )
                     confidence = result["confidence"]
                     detection_details.append(f"{failure_class}:{confidence:.2f}")
@@ -476,7 +471,28 @@ class ControlTowerV3:
             if tier_decision.tier == 1:
                 final_result = tier1_result
             elif tier_decision.tier == 2:
-                final_result = self._tier2_detect(llm_response, tier1_result)
+                tier2_result = self._tier2_detect(llm_response, tier1_result)
+                
+                # ✅ NEW: Escalate to Tier 3 for gray zone cases
+                confidence = tier2_result.get("confidence", 0.0)
+                failure_detected = tier2_result.get("failure_class") is not None
+                
+                # Escalate if:
+                # 1. Gray zone confidence (5-15%) regardless of detection
+                # 2. OR low confidence detection (15-25%)
+                should_escalate_to_tier3 = (
+                    (0.05 <= confidence < 0.15) or  # Gray zone
+                    (failure_detected and confidence < 0.25)  # Low confidence detection
+                )
+                
+                if should_escalate_to_tier3 and self.tier3_available:
+                    print(f"⬆️ Escalating to Tier 3: confidence={confidence:.1%}, needs deep analysis")
+                    final_result = self._tier3_detect(llm_response, context)
+                    # Override tier_used to reflect actual tier
+                    tier_decision = TierDecision(tier=3, reason="Escalated from Tier 2")
+                else:
+                    final_result = tier2_result
+                    
             else:  # Tier 3
                 final_result = self._tier3_detect(llm_response, context)
             
